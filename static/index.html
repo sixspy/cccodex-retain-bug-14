@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>留存裁撤台</title>
+  <link rel="stylesheet" href="/static/css/retain.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1 id="lab-title">留存裁撤台</h1>
+      <p class="sub" id="lab-sub">分区留存策略 → 到期裁决 → 归档/销毁执行 → 策略与实物对账</p>
+    </div>
+    <button class="secondary" id="btn-logout" type="button">退出</button>
+  </header>
+  <div class="layout">
+    <nav class="nav" id="nav">
+      <button type="button" data-view="policies" class="active">留存策略</button>
+      <button type="button" data-view="partitions">实物分区</button>
+      <button type="button" data-view="scan">到期扫描</button>
+      <button type="button" data-view="judgments">裁决执行</button>
+      <button type="button" data-view="reconcile">分区对账</button>
+    </nav>
+    <main class="main" id="main"></main>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

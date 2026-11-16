@@ -1,0 +1,21 @@
+services:
+  retain-lab:
+    build: .
+    container_name: cc-retain-lab-retain-bug-14
+    ports:
+      - "6830:6500"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "6500"
+      DATABASE_PATH: /app/instance/retain_lab.db
+    volumes:
+      - retain_lab_data:/app/instance
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:6500/login', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  retain_lab_data:
