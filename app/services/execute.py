@@ -20,10 +20,14 @@ def execute_judgment(conn: sqlite3.Connection, judgment_id: int) -> dict:
     if part["storage_state"] not in ("在线", "裁撤中"):
         raise ValueError(f"分区状态不可裁撤：{part['storage_state']}")
 
-    conn.execute(
-        "UPDATE judgments SET status = '执行中', fail_reason = '' WHERE id = ?",
+    # 条件占用：只有仍处于可执行态才翻为执行中，rowcount=0 说明并发下已被抢走
+    claim = conn.execute(
+        "UPDATE judgments SET status = '执行中', fail_reason = '' "
+        "WHERE id = ? AND status IN ('待执行','已失败')",
         (judgment_id,),
     )
+    if claim.rowcount == 0:
+        raise ValueError("裁决已被并发执行或状态已变更")
     conn.execute(
         "UPDATE partitions SET storage_state = '裁撤中' WHERE id = ?",
         (part["id"],),

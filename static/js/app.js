@@ -56,13 +56,22 @@
   }
 
   async function renderPartitions() {
-    const data = await api("/api/partitions");
+    const asOf = window.__retainBaseline || "2026-11-16";
+    const data = await api(
+      `/api/partitions?as_of_date=${encodeURIComponent(asOf)}`
+    );
     main.innerHTML = `
+      <div class="toolbar">
+        <label class="field">基准日
+          <input id="part-as-of" value="${asOf}" />
+        </label>
+        <button type="button" id="btn-part-baseline">按基准日核算</button>
+      </div>
       <section class="panel">
         <h2>实物分区</h2>
-        <p class="sub">在线 / 已归档 / 已销毁 / 裁撤中。数字与后续对账同源。</p>
+        <p class="sub">在线 / 已归档 / 已销毁 / 裁撤中。裁决年龄与到期判定均绑定所选基准日，不取墙钟；数字与后续对账同源。</p>
         <table>
-          <thead><tr><th>主题域</th><th>业务日</th><th>行数</th><th>存储态</th><th>归档地址</th></tr></thead>
+          <thead><tr><th>主题域</th><th>业务日</th><th>行数</th><th>存储态</th><th>裁决年龄</th><th>保留天</th><th>基准日到期</th><th>归档地址</th></tr></thead>
           <tbody>
             ${data.items
               .map(
@@ -71,6 +80,15 @@
               <td class="mono">${p.biz_date}</td>
               <td>${p.row_count}</td>
               <td>${tag(p.storage_state)}</td>
+              <td class="mono">${p.age_days ?? "—"}天</td>
+              <td>${p.keep_days ?? "—"}</td>
+              <td>${
+                p.keep_days == null
+                  ? `<span class="tag">无策略</span>`
+                  : p.due_for_expire
+                    ? `<span class="tag warn">到期 · ${p.due_reason}</span>`
+                    : `<span class="tag ok">未到期 · ${p.due_reason}</span>`
+              }</td>
               <td class="mono">${p.archive_uri || "—"}</td>
             </tr>`
               )
@@ -78,6 +96,16 @@
           </tbody>
         </table>
       </section>`;
+    document.getElementById("btn-part-baseline").onclick = async () => {
+      const value = document.getElementById("part-as-of").value.trim();
+      try {
+        window.__retainBaseline = value;
+        await renderPartitions();
+      } catch (err) {
+        window.__retainBaseline = asOf;
+        alert(err.message || "基准日无效");
+      }
+    };
   }
 
   async function renderScan() {
@@ -91,8 +119,9 @@
       </div>
       <section class="panel">
         <h2>扫描任务</h2>
+        <p class="sub">基准日为开单冻结快照并同源计算裁决年龄；提交墙钟仅记录实际入库时刻，二者分列、不得顶替。</p>
         <table>
-          <thead><tr><th>编号</th><th>基准日</th><th>状态</th><th>到期数</th><th>说明</th></tr></thead>
+          <thead><tr><th>编号</th><th>基准日（冻结快照）</th><th>提交墙钟</th><th>状态</th><th>到期数</th><th>说明</th></tr></thead>
           <tbody>
             ${
               jobs.items.length
@@ -101,13 +130,14 @@
                       (j) => `<tr>
               <td>${j.id}</td>
               <td class="mono">${j.as_of_date}</td>
+              <td class="mono">${j.created_at}</td>
               <td>${tag(j.status)}</td>
               <td>${j.expired_count}</td>
               <td>${j.message}</td>
             </tr>`
                     )
                     .join("")
-                : `<tr><td colspan="5" class="empty">尚无扫描任务</td></tr>`
+                : `<tr><td colspan="6" class="empty">尚无扫描任务</td></tr>`
             }
           </tbody>
         </table>
@@ -127,9 +157,9 @@
     main.innerHTML = `
       <section class="panel">
         <h2>裁决清单</h2>
-        <p class="sub">待执行可点「执行」。执行结果写回分区存储态与执行流水。</p>
+        <p class="sub">待执行可点「执行」。裁决年龄按开单基准日同源计算，不取墙钟；执行结果写回分区存储态与执行流水。</p>
         <table>
-          <thead><tr><th>编号</th><th>主题域</th><th>业务日</th><th>策略</th><th>动作</th><th>状态</th><th>操作</th></tr></thead>
+          <thead><tr><th>编号</th><th>主题域</th><th>业务日</th><th>开单基准日</th><th>裁决年龄</th><th>策略</th><th>动作</th><th>状态</th><th>操作</th></tr></thead>
           <tbody>
             ${
               data.items.length
@@ -139,6 +169,8 @@
               <td>${j.id}</td>
               <td class="mono">${j.domain_code}</td>
               <td class="mono">${j.biz_date}</td>
+              <td class="mono">${j.scan_as_of}</td>
+              <td class="mono">${j.age_days}天 ≥ ${j.keep_days}天</td>
               <td>v${j.policy_version} / ${j.keep_days}天</td>
               <td>${j.decided_action}</td>
               <td>${tag(j.status)}</td>
@@ -150,7 +182,7 @@
             </tr>`
                     )
                     .join("")
-                : `<tr><td colspan="7" class="empty">尚无裁决，请先跑到期扫描</td></tr>`
+                : `<tr><td colspan="9" class="empty">尚无裁决，请先跑到期扫描</td></tr>`
             }
           </tbody>
         </table>

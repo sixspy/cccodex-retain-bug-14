@@ -1,0 +1,7 @@
+.venv
+.git
+.verify
+__pycache__
+*.pyc
+.pytest_cache
+_smoke_passed.json

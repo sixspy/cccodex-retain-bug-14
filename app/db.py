@@ -8,9 +8,11 @@ from app.config import Config
 def connect(db_path: str | None = None) -> sqlite3.Connection:
     path = db_path or Config.database()
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, check_same_thread=False)
+    conn = sqlite3.connect(path, check_same_thread=False, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # 并发回灌时让后到的写事务等待，而不是立刻抛 locked
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -77,6 +79,11 @@ CREATE TABLE IF NOT EXISTS judgments (
   FOREIGN KEY(scan_job_id) REFERENCES scan_jobs(id),
   FOREIGN KEY(partition_id) REFERENCES partitions(id)
 );
+
+-- 同一分区至多一张未完成裁决：DB 级兜底，防止并发补采回灌重复开单
+CREATE UNIQUE INDEX IF NOT EXISTS idx_judgments_open_partition
+  ON judgments(partition_id)
+  WHERE status IN ('待执行','执行中');
 
 CREATE TABLE IF NOT EXISTS execute_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

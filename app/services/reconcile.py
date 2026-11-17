@@ -1,8 +1,14 @@
 import sqlite3
+from datetime import datetime
+
+
+def _parse_day(value: str):
+    return datetime.strptime(value, "%Y-%m-%d").date()
 
 
 def run_reconcile(conn: sqlite3.Connection, as_of_date: str) -> dict:
     """策略视角与实物分区对账：统计各存储态，并找出「有完成裁决但状态不符」的错位。"""
+    _parse_day(as_of_date)  # 校验基准日格式，非法日期由上层转 400
     counts = {
         r["storage_state"]: r["c"]
         for r in conn.execute(

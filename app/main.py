@@ -111,10 +111,21 @@ def api_policies(request: Request):
 
 
 @app.get("/api/partitions")
-def api_partitions(request: Request, domain_code: str | None = None):
+def api_partitions(
+    request: Request,
+    domain_code: str | None = None,
+    as_of_date: str | None = None,
+):
     require_user(request)
-    with get_db() as conn:
-        return {"items": list_partitions(conn, domain_code=domain_code)}
+    try:
+        with get_db() as conn:
+            return {
+                "items": list_partitions(
+                    conn, domain_code=domain_code, as_of_date=as_of_date
+                )
+            }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"基准日无效：{exc}") from exc
 
 
 @app.get("/api/scan-jobs")
@@ -131,8 +142,11 @@ async def api_create_scan(request: Request):
     as_of = str(body.get("as_of_date", "")).strip()
     if not as_of:
         raise HTTPException(status_code=400, detail="缺少 as_of_date")
-    with get_db() as conn:
-        job = run_expire_scan(conn, as_of)
+    try:
+        with get_db() as conn:
+            job = run_expire_scan(conn, as_of)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"基准日无效：{exc}") from exc
     return {"ok": True, "job": job}
 
 
@@ -175,6 +189,9 @@ async def api_reconcile(request: Request):
     as_of = str(body.get("as_of_date", "")).strip()
     if not as_of:
         raise HTTPException(status_code=400, detail="缺少 as_of_date")
-    with get_db() as conn:
-        report = run_reconcile(conn, as_of)
+    try:
+        with get_db() as conn:
+            report = run_reconcile(conn, as_of)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"基准日无效：{exc}") from exc
     return {"ok": True, "report": report}
